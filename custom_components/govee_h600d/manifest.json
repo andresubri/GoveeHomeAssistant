@@ -1,0 +1,13 @@
+{
+  "domain": "govee_h600d",
+  "name": "Govee H600D LED Bulbs",
+  "version": "1.0.0",
+  "documentation": "https://github.com/andresubri/GoveeHomeAssistant",
+  "issue_tracker": "https://github.com/andresubri/GoveeHomeAssistant/issues",
+  "codeowners": ["@andresubri"],
+  "config_flow": true,
+  "iot_class": "cloud_polling",
+  "requirements": [],
+  "dependencies": [],
+  "integration_type": "hub"
+}

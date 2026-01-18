@@ -1,0 +1,48 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Govee H600D Configuration",
+        "description": "Enter your Govee Developer API key to connect your Govee devices. You can obtain an API key from the Govee Home app under Settings > About Us > Apply for API Key.",
+        "data": {
+          "api_key": "API Key",
+          "scan_interval": "Scan Interval (seconds)",
+          "model_filter": "Model Filter",
+          "filter_all_lights": "Include All Controllable Lights"
+        },
+        "data_description": {
+          "api_key": "Your Govee Developer API key",
+          "scan_interval": "How often to poll for device updates (10-300 seconds)",
+          "model_filter": "Only include devices with this model (e.g., H600D)",
+          "filter_all_lights": "If enabled, all controllable lights will be added regardless of model"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid API key. Please check your Govee Developer API key.",
+      "cannot_connect": "Unable to connect to Govee API. Please check your network connection.",
+      "unknown": "An unexpected error occurred. Please try again."
+    },
+    "abort": {
+      "already_configured": "This Govee account is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Govee H600D Options",
+        "description": "Configure options for your Govee H600D integration.",
+        "data": {
+          "scan_interval": "Scan Interval (seconds)",
+          "model_filter": "Model Filter",
+          "filter_all_lights": "Include All Controllable Lights"
+        },
+        "data_description": {
+          "scan_interval": "How often to poll for device updates (10-300 seconds)",
+          "model_filter": "Only include devices with this model (e.g., H600D)",
+          "filter_all_lights": "If enabled, all controllable lights will be added regardless of model"
+        }
+      }
+    }
+  }
+}
