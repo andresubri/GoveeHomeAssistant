@@ -1,4 +1,4 @@
-"""The Govee H600D integration."""
+"""The Govee integration."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ PLATFORMS: list[Platform] = [Platform.LIGHT]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Govee H600D from a config entry.
+    """Set up Govee from a config entry.
 
     Args:
         hass: Home Assistant instance.
@@ -40,7 +40,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     Returns:
         True if setup was successful.
     """
-    _LOGGER.debug("Setting up Govee H600D integration")
+    _LOGGER.debug("Setting up Govee integration")
 
     # Get API key from entry data
     api_key = entry.data[CONF_API_KEY]
@@ -75,7 +75,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Register update listener for options changes
     entry.async_on_unload(entry.add_update_listener(async_update_options))
 
-    _LOGGER.info("Govee H600D integration setup complete")
+    _LOGGER.info("Govee integration setup complete")
     return True
 
 
@@ -89,7 +89,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     Returns:
         True if unload was successful.
     """
-    _LOGGER.debug("Unloading Govee H600D integration")
+    _LOGGER.debug("Unloading Govee integration")
 
     # Unload platforms
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
@@ -111,7 +111,7 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
         hass: Home Assistant instance.
         entry: Config entry.
     """
-    _LOGGER.debug("Options updated, reloading Govee H600D integration")
+    _LOGGER.debug("Options updated, reloading Govee integration")
     await hass.config_entries.async_reload(entry.entry_id)
 
 

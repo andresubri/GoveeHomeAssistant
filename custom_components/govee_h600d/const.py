@@ -1,4 +1,4 @@
-"""Constants for the Govee H600D integration."""
+"""Constants for the Govee integration."""
 
 from typing import Final
 
@@ -8,36 +8,36 @@ DOMAIN: Final = "govee_h600d"
 # Configuration keys
 CONF_API_KEY: Final = "api_key"
 CONF_SCAN_INTERVAL: Final = "scan_interval"
-CONF_MODEL_FILTER: Final = "model_filter"
-CONF_FILTER_ALL_LIGHTS: Final = "filter_all_lights"
 
 # Default values
 DEFAULT_SCAN_INTERVAL: Final = 30  # seconds
-DEFAULT_MODEL_FILTER: Final = "H600D"
-DEFAULT_FILTER_ALL_LIGHTS: Final = False
 
-# API endpoints
-API_BASE_URL: Final = "https://developer-api.govee.com"
-API_DEVICES_ENDPOINT: Final = "/v1/devices"
-API_CONTROL_ENDPOINT: Final = "/v1/devices/control"
+# API endpoints (Govee OpenAPI)
+API_BASE_URL: Final = "https://openapi.api.govee.com"
+API_DEVICES_ENDPOINT: Final = "/router/api/v1/user/devices"
+API_CONTROL_ENDPOINT: Final = "/router/api/v1/device/control"
 
 # API headers
 API_KEY_HEADER: Final = "Govee-API-Key"
 
-# API commands
-CMD_TURN: Final = "turn"
-CMD_BRIGHTNESS: Final = "brightness"
-CMD_COLOR: Final = "color"
-CMD_COLOR_TEM: Final = "colorTem"
+# Capability types
+CAP_ON_OFF: Final = "devices.capabilities.on_off"
+CAP_RANGE: Final = "devices.capabilities.range"
+CAP_COLOR_SETTING: Final = "devices.capabilities.color_setting"
 
-# API command values
-VALUE_ON: Final = "on"
-VALUE_OFF: Final = "off"
+# Capability instances
+CAP_INSTANCE_POWER: Final = "powerSwitch"
+CAP_INSTANCE_BRIGHTNESS: Final = "brightness"
+CAP_INSTANCE_COLOR_RGB: Final = "colorRgb"
+CAP_INSTANCE_COLOR_TEMP: Final = "colorTemperatureK"
+
+# Device types
+DEVICE_TYPE_LIGHT: Final = "devices.types.light"
 
 # Brightness conversion
 HA_BRIGHTNESS_MIN: Final = 1
 HA_BRIGHTNESS_MAX: Final = 255
-API_BRIGHTNESS_MIN: Final = 0
+API_BRIGHTNESS_MIN: Final = 1
 API_BRIGHTNESS_MAX: Final = 100
 
 # Color temperature defaults (Kelvin)
@@ -50,12 +50,10 @@ API_TIMEOUT: Final = 10  # seconds
 
 # Device properties
 DEVICE_ATTR_DEVICE: Final = "device"
-DEVICE_ATTR_MODEL: Final = "model"
+DEVICE_ATTR_SKU: Final = "sku"
 DEVICE_ATTR_DEVICE_NAME: Final = "deviceName"
-DEVICE_ATTR_CONTROLLABLE: Final = "controllable"
-DEVICE_ATTR_RETRIEVABLE: Final = "retrievable"
-DEVICE_ATTR_SUPPORT_CMDS: Final = "supportCmds"
-DEVICE_ATTR_PROPERTIES: Final = "properties"
+DEVICE_ATTR_TYPE: Final = "type"
+DEVICE_ATTR_CAPABILITIES: Final = "capabilities"
 
 # Logging
 LOGGER_NAME: Final = DOMAIN

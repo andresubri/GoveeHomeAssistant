@@ -1,4 +1,4 @@
-"""Govee API client for H600D integration."""
+"""Govee API client for the integration."""
 
 from __future__ import annotations
 
@@ -15,10 +15,13 @@ from .const import (
     API_DEVICES_ENDPOINT,
     API_KEY_HEADER,
     API_TIMEOUT,
-    CMD_BRIGHTNESS,
-    CMD_COLOR,
-    CMD_COLOR_TEM,
-    CMD_TURN,
+    CAP_INSTANCE_BRIGHTNESS,
+    CAP_INSTANCE_COLOR_RGB,
+    CAP_INSTANCE_COLOR_TEMP,
+    CAP_INSTANCE_POWER,
+    CAP_ON_OFF,
+    CAP_RANGE,
+    CAP_COLOR_SETTING,
     DOMAIN,
 )
 
@@ -42,7 +45,7 @@ class GoveeRateLimitError(GoveeApiError):
 
 
 class GoveeApiClient:
-    """Client to interact with Govee Developer API."""
+    """Client to interact with Govee OpenAPI."""
 
     def __init__(
         self,
@@ -143,7 +146,8 @@ class GoveeApiClient:
 
         response = await self._request("GET", API_DEVICES_ENDPOINT)
 
-        devices = response.get("data", {}).get("devices", [])
+        # New API returns devices directly in data array
+        devices = response.get("data", [])
         _LOGGER.debug("Found %d devices", len(devices))
 
         return devices
@@ -151,17 +155,19 @@ class GoveeApiClient:
     async def async_control_device(
         self,
         device: str,
-        model: str,
-        cmd_name: str,
-        cmd_value: Any,
+        sku: str,
+        capability_type: str,
+        instance: str,
+        value: Any,
     ) -> bool:
         """Send a control command to a device.
 
         Args:
-            device: Device MAC address.
-            model: Device model.
-            cmd_name: Command name (turn, brightness, color, colorTem).
-            cmd_value: Command value.
+            device: Device ID/MAC address.
+            sku: Device SKU/model.
+            capability_type: Capability type (e.g., devices.capabilities.on_off).
+            instance: Capability instance (e.g., powerSwitch).
+            value: Command value.
 
         Returns:
             True if command was successful.
@@ -170,73 +176,82 @@ class GoveeApiClient:
             GoveeApiError: If the request fails.
         """
         _LOGGER.debug(
-            "Sending command to device %s: %s=%s",
+            "Sending command to device %s: %s.%s=%s",
             device,
-            cmd_name,
-            cmd_value,
+            capability_type,
+            instance,
+            value,
         )
 
         payload = {
-            "device": device,
-            "model": model,
-            "cmd": {
-                "name": cmd_name,
-                "value": cmd_value,
+            "requestId": "uuid",
+            "payload": {
+                "sku": sku,
+                "device": device,
+                "capability": {
+                    "type": capability_type,
+                    "instance": instance,
+                    "value": value,
+                },
             },
         }
 
-        await self._request("PUT", API_CONTROL_ENDPOINT, json_data=payload)
+        await self._request("POST", API_CONTROL_ENDPOINT, json_data=payload)
         return True
 
-    async def async_turn_on(self, device: str, model: str) -> bool:
+    async def async_turn_on(self, device: str, sku: str) -> bool:
         """Turn on a device.
 
         Args:
-            device: Device MAC address.
-            model: Device model.
+            device: Device ID/MAC address.
+            sku: Device SKU/model.
 
         Returns:
             True if successful.
         """
-        return await self.async_control_device(device, model, CMD_TURN, "on")
+        return await self.async_control_device(
+            device, sku, CAP_ON_OFF, CAP_INSTANCE_POWER, 1
+        )
 
-    async def async_turn_off(self, device: str, model: str) -> bool:
+    async def async_turn_off(self, device: str, sku: str) -> bool:
         """Turn off a device.
 
         Args:
-            device: Device MAC address.
-            model: Device model.
+            device: Device ID/MAC address.
+            sku: Device SKU/model.
 
         Returns:
             True if successful.
         """
-        return await self.async_control_device(device, model, CMD_TURN, "off")
+        return await self.async_control_device(
+            device, sku, CAP_ON_OFF, CAP_INSTANCE_POWER, 0
+        )
 
     async def async_set_brightness(
         self,
         device: str,
-        model: str,
+        sku: str,
         brightness: int,
     ) -> bool:
         """Set device brightness.
 
         Args:
-            device: Device MAC address.
-            model: Device model.
-            brightness: Brightness level (0-100).
+            device: Device ID/MAC address.
+            sku: Device SKU/model.
+            brightness: Brightness level (1-100).
 
         Returns:
             True if successful.
         """
-        brightness = max(0, min(100, brightness))
+        brightness = max(1, min(100, brightness))
         return await self.async_control_device(
-            device, model, CMD_BRIGHTNESS, brightness
+            device, sku, CAP_RANGE, CAP_INSTANCE_BRIGHTNESS, brightness
         )
 
     async def async_set_color(
         self,
         device: str,
-        model: str,
+        sku: str,
         r: int,
         g: int,
         b: int,
@@ -244,8 +259,8 @@ class GoveeApiClient:
         """Set device color.
 
         Args:
-            device: Device MAC address.
-            model: Device model.
+            device: Device ID/MAC address.
+            sku: Device SKU/model.
             r: Red component (0-255).
             g: Green component (0-255).
             b: Blue component (0-255).
@@ -253,30 +268,34 @@ class GoveeApiClient:
         Returns:
             True if successful.
         """
-        color_value = {
-            "r": max(0, min(255, r)),
-            "g": max(0, min(255, g)),
-            "b": max(0, min(255, b)),
-        }
-        return await self.async_control_device(device, model, CMD_COLOR, color_value)
+        # Convert RGB to integer value (RGB packed into single int)
+        r = max(0, min(255, r))
+        g = max(0, min(255, g))
+        b = max(0, min(255, b))
+        color_value = (r << 16) + (g << 8) + b
+        return await self.async_control_device(
+            device, sku, CAP_COLOR_SETTING, CAP_INSTANCE_COLOR_RGB, color_value
+        )
 
     async def async_set_color_temperature(
         self,
         device: str,
-        model: str,
+        sku: str,
         kelvin: int,
     ) -> bool:
         """Set device color temperature.
 
         Args:
-            device: Device MAC address.
-            model: Device model.
+            device: Device ID/MAC address.
+            sku: Device SKU/model.
             kelvin: Color temperature in Kelvin.
 
         Returns:
             True if successful.
         """
-        return await self.async_control_device(device, model, CMD_COLOR_TEM, kelvin)
+        return await self.async_control_device(
+            device, sku, CAP_COLOR_SETTING, CAP_INSTANCE_COLOR_TEMP, kelvin
+        )
 
     async def async_validate_api_key(self) -> bool:
         """Validate the API key by making a test request.
