@@ -1,4 +1,4 @@
-"""Light platform for Govee H600D integration."""
+"""Light platform for Govee integration."""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ from homeassistant.components.light import (
     ATTR_RGB_COLOR,
     ColorMode,
     LightEntity,
-    LightEntityFeature,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
@@ -22,22 +21,21 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import (
     API_BRIGHTNESS_MAX,
     API_BRIGHTNESS_MIN,
-    CMD_BRIGHTNESS,
-    CMD_COLOR,
-    CMD_COLOR_TEM,
-    CMD_TURN,
-    CONF_FILTER_ALL_LIGHTS,
-    CONF_MODEL_FILTER,
-    DEFAULT_FILTER_ALL_LIGHTS,
+    CAP_COLOR_SETTING,
+    CAP_INSTANCE_BRIGHTNESS,
+    CAP_INSTANCE_COLOR_RGB,
+    CAP_INSTANCE_COLOR_TEMP,
+    CAP_INSTANCE_POWER,
+    CAP_ON_OFF,
+    CAP_RANGE,
     DEFAULT_MAX_COLOR_TEMP_KELVIN,
     DEFAULT_MIN_COLOR_TEMP_KELVIN,
-    DEFAULT_MODEL_FILTER,
-    DEVICE_ATTR_CONTROLLABLE,
+    DEVICE_ATTR_CAPABILITIES,
     DEVICE_ATTR_DEVICE,
     DEVICE_ATTR_DEVICE_NAME,
-    DEVICE_ATTR_MODEL,
-    DEVICE_ATTR_PROPERTIES,
-    DEVICE_ATTR_SUPPORT_CMDS,
+    DEVICE_ATTR_SKU,
+    DEVICE_ATTR_TYPE,
+    DEVICE_TYPE_LIGHT,
     DOMAIN,
     HA_BRIGHTNESS_MAX,
     HA_BRIGHTNESS_MIN,
@@ -51,7 +49,7 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Govee H600D light entities from a config entry.
+    """Set up Govee light entities from a config entry.
 
     Args:
         hass: Home Assistant instance.
@@ -61,41 +59,35 @@ async def async_setup_entry(
     coordinator = hass.data[DOMAIN][config_entry.entry_id]["coordinator"]
     api_client = hass.data[DOMAIN][config_entry.entry_id]["api_client"]
 
-    # Get filter settings from options
-    model_filter = config_entry.options.get(CONF_MODEL_FILTER, DEFAULT_MODEL_FILTER)
-    filter_all_lights = config_entry.options.get(
-        CONF_FILTER_ALL_LIGHTS, DEFAULT_FILTER_ALL_LIGHTS
-    )
-
     entities = []
     for device in coordinator.data:
-        # Skip non-controllable devices
-        if not device.get(DEVICE_ATTR_CONTROLLABLE, False):
+        device_type = device.get(DEVICE_ATTR_TYPE, "")
+
+        # Only add light devices
+        if device_type != DEVICE_TYPE_LIGHT:
+            _LOGGER.debug(
+                "Skipping device %s with type %s (not a light)",
+                device.get(DEVICE_ATTR_DEVICE),
+                device_type,
+            )
             continue
 
-        # Apply model filter unless "all lights" is enabled
-        if not filter_all_lights:
-            device_model = device.get(DEVICE_ATTR_MODEL, "")
-            if model_filter and model_filter.upper() not in device_model.upper():
-                _LOGGER.debug(
-                    "Skipping device %s with model %s (filter: %s)",
-                    device.get(DEVICE_ATTR_DEVICE),
-                    device_model,
-                    model_filter,
-                )
-                continue
+        # Check if device has on/off capability (basic light functionality)
+        capabilities = device.get(DEVICE_ATTR_CAPABILITIES, [])
+        has_power_control = any(
+            cap.get("type") == CAP_ON_OFF and cap.get("instance") == CAP_INSTANCE_POWER
+            for cap in capabilities
+        )
 
-        # Check if device supports turn command (basic light functionality)
-        support_cmds = device.get(DEVICE_ATTR_SUPPORT_CMDS, [])
-        if CMD_TURN not in support_cmds:
+        if not has_power_control:
             _LOGGER.debug(
-                "Skipping device %s - does not support turn command",
+                "Skipping device %s - does not support power control",
                 device.get(DEVICE_ATTR_DEVICE),
             )
             continue
 
         entities.append(
-            GoveeH600DLight(
+            GoveeLight(
                 coordinator=coordinator,
                 api_client=api_client,
                 device_data=device,
@@ -108,15 +100,15 @@ async def async_setup_entry(
 
 
 def _ha_to_api_brightness(ha_brightness: int) -> int:
-    """Convert Home Assistant brightness (1-255) to API brightness (0-100).
+    """Convert Home Assistant brightness (1-255) to API brightness (1-100).
 
     Args:
         ha_brightness: Brightness value from Home Assistant (1-255).
 
     Returns:
-        Brightness value for API (0-100).
+        Brightness value for API (1-100).
     """
-    # Scale from 1-255 to 0-100
+    # Scale from 1-255 to 1-100
     return round(
         (ha_brightness - HA_BRIGHTNESS_MIN)
         * (API_BRIGHTNESS_MAX - API_BRIGHTNESS_MIN)
@@ -126,15 +118,15 @@ def _ha_to_api_brightness(ha_brightness: int) -> int:
 
 
 def _api_to_ha_brightness(api_brightness: int) -> int:
-    """Convert API brightness (0-100) to Home Assistant brightness (1-255).
+    """Convert API brightness (1-100) to Home Assistant brightness (1-255).
 
     Args:
-        api_brightness: Brightness value from API (0-100).
+        api_brightness: Brightness value from API (1-100).
 
     Returns:
         Brightness value for Home Assistant (1-255).
     """
-    # Scale from 0-100 to 1-255
+    # Scale from 1-100 to 1-255
     return round(
         (api_brightness - API_BRIGHTNESS_MIN)
         * (HA_BRIGHTNESS_MAX - HA_BRIGHTNESS_MIN)
@@ -143,8 +135,25 @@ def _api_to_ha_brightness(api_brightness: int) -> int:
     )
 
 
-class GoveeH600DLight(CoordinatorEntity, LightEntity):
-    """Representation of a Govee H600D light."""
+def _get_capability(capabilities: list[dict], cap_type: str, instance: str) -> dict | None:
+    """Get a specific capability from the capabilities list.
+
+    Args:
+        capabilities: List of capability dictionaries.
+        cap_type: Capability type to find.
+        instance: Capability instance to find.
+
+    Returns:
+        Capability dictionary or None if not found.
+    """
+    for cap in capabilities:
+        if cap.get("type") == cap_type and cap.get("instance") == instance:
+            return cap
+    return None
+
+
+class GoveeLight(CoordinatorEntity, LightEntity):
+    """Representation of a Govee light."""
 
     _attr_has_entity_name = True
 
@@ -166,14 +175,13 @@ class GoveeH600DLight(CoordinatorEntity, LightEntity):
         super().__init__(coordinator)
 
         self._api_client = api_client
-        self._device_mac = device_data.get(DEVICE_ATTR_DEVICE, "")
-        self._device_model = device_data.get(DEVICE_ATTR_MODEL, "")
+        self._device_id = device_data.get(DEVICE_ATTR_DEVICE, "")
+        self._device_sku = device_data.get(DEVICE_ATTR_SKU, "")
         self._device_name = device_data.get(DEVICE_ATTR_DEVICE_NAME, "Govee Light")
-        self._support_cmds = device_data.get(DEVICE_ATTR_SUPPORT_CMDS, [])
-        self._properties = device_data.get(DEVICE_ATTR_PROPERTIES, {})
+        self._capabilities = device_data.get(DEVICE_ATTR_CAPABILITIES, [])
 
-        # Unique ID based on device MAC
-        self._attr_unique_id = f"{DOMAIN}_{self._device_mac.replace(':', '_')}"
+        # Unique ID based on device ID
+        self._attr_unique_id = f"{DOMAIN}_{self._device_id.replace(':', '_')}"
 
         # Set entity name (will be combined with device name)
         self._attr_name = None  # Use device name only
@@ -182,16 +190,16 @@ class GoveeH600DLight(CoordinatorEntity, LightEntity):
         self._attr_supported_color_modes = self._determine_color_modes()
         self._attr_color_mode = self._get_default_color_mode()
 
-        # Set color temperature range
+        # Set color temperature range from capabilities
         self._attr_min_color_temp_kelvin = self._get_min_color_temp()
         self._attr_max_color_temp_kelvin = self._get_max_color_temp()
 
         # Device info for device registry
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, self._device_mac)},
+            identifiers={(DOMAIN, self._device_id)},
             name=self._device_name,
             manufacturer="Govee",
-            model=self._device_model,
+            model=self._device_sku,
             via_device=(DOMAIN, config_entry.entry_id),
         )
 
@@ -211,14 +219,16 @@ class GoveeH600DLight(CoordinatorEntity, LightEntity):
         """
         modes: set[ColorMode] = set()
 
-        if CMD_COLOR in self._support_cmds:
+        # Check for RGB color support
+        if _get_capability(self._capabilities, CAP_COLOR_SETTING, CAP_INSTANCE_COLOR_RGB):
             modes.add(ColorMode.RGB)
 
-        if CMD_COLOR_TEM in self._support_cmds:
+        # Check for color temperature support
+        if _get_capability(self._capabilities, CAP_COLOR_SETTING, CAP_INSTANCE_COLOR_TEMP):
             modes.add(ColorMode.COLOR_TEMP)
 
-        # If brightness is supported but no color modes, use brightness mode
-        if CMD_BRIGHTNESS in self._support_cmds and not modes:
+        # Check for brightness support (if no color modes)
+        if _get_capability(self._capabilities, CAP_RANGE, CAP_INSTANCE_BRIGHTNESS) and not modes:
             modes.add(ColorMode.BRIGHTNESS)
 
         # If only on/off, use ONOFF mode
@@ -247,13 +257,12 @@ class GoveeH600DLight(CoordinatorEntity, LightEntity):
         Returns:
             Minimum color temperature.
         """
-        # Try to get from device properties
-        if isinstance(self._properties, dict):
-            color_tem = self._properties.get("colorTem", {})
-            if isinstance(color_tem, dict):
-                range_info = color_tem.get("range", {})
-                if isinstance(range_info, dict) and "min" in range_info:
-                    return range_info["min"]
+        cap = _get_capability(self._capabilities, CAP_COLOR_SETTING, CAP_INSTANCE_COLOR_TEMP)
+        if cap:
+            params = cap.get("parameters", {})
+            range_info = params.get("range", {})
+            if "min" in range_info:
+                return range_info["min"]
 
         return DEFAULT_MIN_COLOR_TEMP_KELVIN
 
@@ -263,13 +272,12 @@ class GoveeH600DLight(CoordinatorEntity, LightEntity):
         Returns:
             Maximum color temperature.
         """
-        # Try to get from device properties
-        if isinstance(self._properties, dict):
-            color_tem = self._properties.get("colorTem", {})
-            if isinstance(color_tem, dict):
-                range_info = color_tem.get("range", {})
-                if isinstance(range_info, dict) and "max" in range_info:
-                    return range_info["max"]
+        cap = _get_capability(self._capabilities, CAP_COLOR_SETTING, CAP_INSTANCE_COLOR_TEMP)
+        if cap:
+            params = cap.get("parameters", {})
+            range_info = params.get("range", {})
+            if "max" in range_info:
+                return range_info["max"]
 
         return DEFAULT_MAX_COLOR_TEMP_KELVIN
 
@@ -284,15 +292,7 @@ class GoveeH600DLight(CoordinatorEntity, LightEntity):
         if self._optimistic_state["is_on"] is not None:
             return self._optimistic_state["is_on"]
 
-        # Try to get from coordinator data
-        device_data = self._get_device_data()
-        if device_data:
-            properties = device_data.get(DEVICE_ATTR_PROPERTIES, {})
-            if isinstance(properties, dict):
-                power_state = properties.get("powerState")
-                if power_state is not None:
-                    return power_state == "on"
-
+        # State is not retrievable from this API without device state endpoint
         return None
 
     @property
@@ -305,15 +305,6 @@ class GoveeH600DLight(CoordinatorEntity, LightEntity):
         # Use optimistic state if available
         if self._optimistic_state["brightness"] is not None:
             return self._optimistic_state["brightness"]
-
-        # Try to get from coordinator data
-        device_data = self._get_device_data()
-        if device_data:
-            properties = device_data.get(DEVICE_ATTR_PROPERTIES, {})
-            if isinstance(properties, dict):
-                api_brightness = properties.get("brightness")
-                if api_brightness is not None:
-                    return _api_to_ha_brightness(api_brightness)
 
         return None
 
@@ -328,18 +319,6 @@ class GoveeH600DLight(CoordinatorEntity, LightEntity):
         if self._optimistic_state["rgb_color"] is not None:
             return self._optimistic_state["rgb_color"]
 
-        # Try to get from coordinator data
-        device_data = self._get_device_data()
-        if device_data:
-            properties = device_data.get(DEVICE_ATTR_PROPERTIES, {})
-            if isinstance(properties, dict):
-                color = properties.get("color")
-                if isinstance(color, dict):
-                    r = color.get("r", 0)
-                    g = color.get("g", 0)
-                    b = color.get("b", 0)
-                    return (r, g, b)
-
         return None
 
     @property
@@ -353,15 +332,6 @@ class GoveeH600DLight(CoordinatorEntity, LightEntity):
         if self._optimistic_state["color_temp_kelvin"] is not None:
             return self._optimistic_state["color_temp_kelvin"]
 
-        # Try to get from coordinator data
-        device_data = self._get_device_data()
-        if device_data:
-            properties = device_data.get(DEVICE_ATTR_PROPERTIES, {})
-            if isinstance(properties, dict):
-                color_tem = properties.get("colorTemInKelvin")
-                if color_tem is not None:
-                    return color_tem
-
         return None
 
     def _get_device_data(self) -> dict[str, Any] | None:
@@ -372,7 +342,7 @@ class GoveeH600DLight(CoordinatorEntity, LightEntity):
         """
         if self.coordinator.data:
             for device in self.coordinator.data:
-                if device.get(DEVICE_ATTR_DEVICE) == self._device_mac:
+                if device.get(DEVICE_ATTR_DEVICE) == self._device_id:
                     return device
         return None
 
@@ -393,8 +363,8 @@ class GoveeH600DLight(CoordinatorEntity, LightEntity):
             ha_brightness = kwargs[ATTR_BRIGHTNESS]
             api_brightness = _ha_to_api_brightness(ha_brightness)
             await self._api_client.async_set_brightness(
-                self._device_mac,
-                self._device_model,
+                self._device_id,
+                self._device_sku,
                 api_brightness,
             )
             self._optimistic_state["brightness"] = ha_brightness
@@ -407,8 +377,8 @@ class GoveeH600DLight(CoordinatorEntity, LightEntity):
         elif ATTR_RGB_COLOR in kwargs:
             r, g, b = kwargs[ATTR_RGB_COLOR]
             await self._api_client.async_set_color(
-                self._device_mac,
-                self._device_model,
+                self._device_id,
+                self._device_sku,
                 r,
                 g,
                 b,
@@ -428,8 +398,8 @@ class GoveeH600DLight(CoordinatorEntity, LightEntity):
                 min(self._attr_max_color_temp_kelvin, kelvin),
             )
             await self._api_client.async_set_color_temperature(
-                self._device_mac,
-                self._device_model,
+                self._device_id,
+                self._device_sku,
                 kelvin,
             )
             self._optimistic_state["color_temp_kelvin"] = kelvin
@@ -441,8 +411,8 @@ class GoveeH600DLight(CoordinatorEntity, LightEntity):
         # Just turn on (no specific attribute)
         else:
             await self._api_client.async_turn_on(
-                self._device_mac,
-                self._device_model,
+                self._device_id,
+                self._device_sku,
             )
             self._optimistic_state["is_on"] = True
 
@@ -457,8 +427,8 @@ class GoveeH600DLight(CoordinatorEntity, LightEntity):
         _LOGGER.debug("Turning off %s", self._device_name)
 
         await self._api_client.async_turn_off(
-            self._device_mac,
-            self._device_model,
+            self._device_id,
+            self._device_sku,
         )
 
         self._optimistic_state["is_on"] = False

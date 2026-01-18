@@ -1,4 +1,4 @@
-"""Config flow for Govee H600D integration."""
+"""Config flow for Govee integration."""
 
 from __future__ import annotations
 
@@ -19,11 +19,7 @@ from .api import (
 )
 from .const import (
     CONF_API_KEY,
-    CONF_FILTER_ALL_LIGHTS,
-    CONF_MODEL_FILTER,
     CONF_SCAN_INTERVAL,
-    DEFAULT_FILTER_ALL_LIGHTS,
-    DEFAULT_MODEL_FILTER,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
 )
@@ -37,20 +33,12 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
             CONF_SCAN_INTERVAL,
             default=DEFAULT_SCAN_INTERVAL,
         ): vol.All(vol.Coerce(int), vol.Range(min=10, max=300)),
-        vol.Optional(
-            CONF_MODEL_FILTER,
-            default=DEFAULT_MODEL_FILTER,
-        ): str,
-        vol.Optional(
-            CONF_FILTER_ALL_LIGHTS,
-            default=DEFAULT_FILTER_ALL_LIGHTS,
-        ): bool,
     }
 )
 
 
-class GoveeH600DConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Govee H600D."""
+class GoveeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for Govee."""
 
     VERSION = 1
 
@@ -79,24 +67,18 @@ class GoveeH600DConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 # Check if already configured
                 await self.async_set_unique_id(
-                    f"govee_h600d_{user_input[CONF_API_KEY][:8]}"
+                    f"govee_{user_input[CONF_API_KEY][:8]}"
                 )
                 self._abort_if_unique_id_configured()
 
                 return self.async_create_entry(
-                    title="Govee H600D",
+                    title="Govee",
                     data={
                         CONF_API_KEY: user_input[CONF_API_KEY],
                     },
                     options={
                         CONF_SCAN_INTERVAL: user_input.get(
                             CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
-                        ),
-                        CONF_MODEL_FILTER: user_input.get(
-                            CONF_MODEL_FILTER, DEFAULT_MODEL_FILTER
-                        ),
-                        CONF_FILTER_ALL_LIGHTS: user_input.get(
-                            CONF_FILTER_ALL_LIGHTS, DEFAULT_FILTER_ALL_LIGHTS
                         ),
                     },
                 )
@@ -128,13 +110,13 @@ class GoveeH600DConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
-    ) -> GoveeH600DOptionsFlow:
+    ) -> GoveeOptionsFlow:
         """Get the options flow for this handler."""
-        return GoveeH600DOptionsFlow(config_entry)
+        return GoveeOptionsFlow(config_entry)
 
 
-class GoveeH600DOptionsFlow(config_entries.OptionsFlow):
-    """Handle options flow for Govee H600D."""
+class GoveeOptionsFlow(config_entries.OptionsFlow):
+    """Handle options flow for Govee."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
@@ -162,18 +144,6 @@ class GoveeH600DOptionsFlow(config_entries.OptionsFlow):
                             CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
                         ),
                     ): vol.All(vol.Coerce(int), vol.Range(min=10, max=300)),
-                    vol.Optional(
-                        CONF_MODEL_FILTER,
-                        default=current_options.get(
-                            CONF_MODEL_FILTER, DEFAULT_MODEL_FILTER
-                        ),
-                    ): str,
-                    vol.Optional(
-                        CONF_FILTER_ALL_LIGHTS,
-                        default=current_options.get(
-                            CONF_FILTER_ALL_LIGHTS, DEFAULT_FILTER_ALL_LIGHTS
-                        ),
-                    ): bool,
                 }
             ),
         )
