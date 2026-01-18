@@ -21,6 +21,29 @@ A custom Home Assistant integration for controlling Govee Smart LED Bulbs (H600D
 
 ## Installation
 
+### HACS (Recommended)
+
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+
+1. Make sure [HACS](https://hacs.xyz/) is installed in your Home Assistant instance
+
+2. Add this repository as a custom repository in HACS:
+   - Open HACS in Home Assistant
+   - Click on **Integrations**
+   - Click the three dots menu in the top right
+   - Select **Custom repositories**
+   - Add `https://github.com/andresubri/GoveeHomeAssistant` as the repository URL
+   - Select **Integration** as the category
+   - Click **Add**
+
+3. Search for "Govee H600D" in HACS and install it
+
+4. Restart Home Assistant
+
+5. Go to **Settings** > **Devices & Services** > **Add Integration**
+
+6. Search for "Govee H600D" and follow the setup wizard
+
 ### Manual Installation
 
 1. Copy the `custom_components/govee_h600d` folder to your Home Assistant's `custom_components` directory:
