@@ -1,6 +1,6 @@
-# Govee H600D Home Assistant Integration
+# Govee Home Assistant Integration
 
-A custom Home Assistant integration for controlling Govee Smart LED Bulbs (H600D model) using the Govee Developer API.
+A custom Home Assistant integration for controlling Govee Smart LED Bulbs using the Govee Developer API.
 
 ## Features
 
